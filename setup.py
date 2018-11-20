@@ -49,7 +49,7 @@ def setup_package():
     version, status = get_version()
     version = ".".join([version, status])
 
-    packages = ["mfft"]
+    packages = ["mfft", "mfft.test"]
     package_dir = {
         "mfft": "mfft",
         "mfft.test": "mfft/test",

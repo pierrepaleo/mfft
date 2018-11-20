@@ -14,7 +14,7 @@ except ImportError:
     __have_cufft__ = False
 # pyfftw (FFTW3)
 try:
-    import pyfftw.FFTW as fftw_fft
+    import pyfftw
     __have_fftw__ = True
 except ImportError:
     __have_fftw__ = False
@@ -22,7 +22,7 @@ except ImportError:
 
 
 class FFT(object):
-    def __init__(self, shape, dtype, data=None, shape_out=None, double_precision=False):
+    def __init__(self, shape=None, dtype=None, data=None, shape_out=None, double_precision=False):
         """
         Initialize a FFT plan.
 
@@ -45,6 +45,8 @@ class FFT(object):
             If set to True, computations will be done in double precision regardless
             of the input data type.
         """
+        if shape is None and dtype is None and data is None:
+            raise ValueError("Please provide either (shape and dtype) or data")
         if data is not None:
             self.shape = data.shape
             self.dtype = data.dtype
@@ -58,17 +60,18 @@ class FFT(object):
 
     def set_dtypes(self):
         dtypes_mapping = {
-            np.float32: np.complex64,
-            np.float64: np.complex128,
-            np.complex64: np.complex64,
-            np.complex128: np.complex128
+            np.dtype("float32"): np.complex64,
+            np.dtype("float64"): np.complex128,
+            np.dtype("complex64"): np.complex64,
+            np.dtype("complex128"): np.complex128
         }
         dp = {
-            np.float32: np.float64,
-            np.complex64: np.complex128
+            np.dtype("float32"): np.float64,
+            np.dtype("complex64"): np.complex128
         }
+        self.dtype_in = np.dtype(self.dtype)
         if self.double_precision and self.dtype in dp:
-            self.dtype_in = dp[self.dtype]
+            self.dtype_in = dp[self.dtype_in]
         self.dtype_out = dtypes_mapping[self.dtype_in]
 
 
