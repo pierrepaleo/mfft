@@ -30,8 +30,7 @@ import unittest
 from scipy.misc import ascent
 #~ from silx.opencl import ocl
 
-from mfft.fftw import FFTW
-
+from mfft.fft import FFT
 
 
 class TestFFT(unittest.TestCase):
@@ -51,14 +50,23 @@ class TestFFT(unittest.TestCase):
 
     def setUp(self):
         self.data = ascent().astype("float32")
-        self.F = FFTW(data=self.data, check_alignment=True)
+        #~ self.F = FFT(data=self.data[:, 1], check_alignment=True)
 
     def tearDown(self):
         self.data = None
 
 
+    def test_plan_creation(self):
+        #~ plan_numpy = FFT(data=self.data[:, 0], backend="numpy")
+        plan_fftw = FFT(data=self.data[:, 0], backend="fftw", check_alignment=True)
+        #~ plan_opencl = FFT(data=self.data[:, 0], backend="opencl")
+        #~ plan_cuda = FFT(data=self.data[:, 0], backend="cuda")
+
+
     def test_forward_FFT(self):
-        pass
+        data1d = self.data[:, 0]
+        F = FFT(data=data1d, backend="fftw", check_alignment=True)
+        res = F.fft(data1d)
 
 
 
@@ -66,7 +74,8 @@ class TestFFT(unittest.TestCase):
 
 def suite():
     testSuite = unittest.TestSuite()
-    testSuite.addTest(TestFFT("test_forward_FFT"))
+    testSuite.addTest(TestFFT("test_plan_creation"))
+    #~ testSuite.addTest(TestFFT("test_forward_FFT"))
     #~ for test_name, test_params in test_cases.items():
         #~ testSuite.addTest(parameterize(TestFFT, name=test_name, params=test_params))
     return testSuite

@@ -1,5 +1,31 @@
+#!/usr/bin/env python
+# coding: utf-8
+# /*##########################################################################
+#
+# Copyright (c) 2016 European Synchrotron Radiation Facility
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
+#
+# ###########################################################################*/
 import numpy as np
 
+"""
 # gpyFFT (clfft/openCL)
 try:
     from gpyfft.fft import FFT as cl_fft
@@ -18,69 +44,82 @@ try:
     __have_fftw__ = True
 except ImportError:
     __have_fftw__ = False
+"""
+
+from .fftw import FFTW
+#~ from .npfft import NPFFT
+#~ from .clfft import CLFFT
+#~ from .cufft import CUFFT
+
+
+def FFT(
+    shape=None,
+    dtype=None,
+    data=None,
+    shape_out=None,
+    double_precision=False,
+    axes=(-1,),
+    normalize="rescale",
+    backend="numpy",
+    **kwargs
+):
+    """
+    Initialize a FFT plan.
+
+    Parameters
+    ----------
+    shape: tuple
+        Shape of the input data.
+    dtype: type
+        Data type of the input data.
+    data: numpy.ndarray, optional
+        Input data. If provided, the arguments "shape" and "dtype" are ignored,
+        and are instead infered from "data".
+    shape_out: tuple, optional
+        Shape of output data. By default, the data has the same shape as the input
+        data (in case of C2C transform), or a shape with the last dimension halved
+        (in case of R2C transform). If shape_out is provided, it must be greater
+        or equal than the shape of input data. In this case, FFT is performed
+        with zero-padding.
+    double_precision: bool, optional
+        If set to True, computations will be done in double precision regardless
+        of the input data type.
+    axes: tuple
+        Axes along which FFT is computed.
+          * For 2D transform: axes=(1,0)
+          * For batched 1D transform of 2D image: axes=(0,)
+    normalize: str
+        Whether to normalize FFT and IFFT. Possible values are:
+          * "rescale": in this case, Fourier data is divided by "N"
+            before IFFT, so that (FFT(data)) = data
+          * "ortho": in this case, FFT and IFFT are adjoint of eachother,
+            the transform is unitary. Both FFT and IFFT are scaled with 1/sqrt(N).
+          * "none": no normalizatio is done : IFFT(FFT(data)) = data*N
+    backend: str
+        FFT Backend to use. Value can be "numpy", "fftw", "opencl", "cuda".
+    """
+    backends = {
+        #~ "numpy": NPFFT,
+        "fftw": FFTW,
+        #~ "opencl": CLFFT,
+        #~ "cuda": CUFFT,
+    }
+
+    backend = backend.lower()
+    if backend not in backends:
+        raise ValueError("Unknown backend %s, available are %s" % (backend, backends))
+    F = backends[backend](
+        shape=shape,
+        dtype=dtype,
+        data=data,
+        shape_out=shape_out,
+        double_precision=double_precision,
+        **kwargs
+    )
+    return F
 
 
 
-class FFT(object):
-    def __init__(self, shape=None, dtype=None, data=None, shape_out=None, double_precision=False):
-        """
-        Initialize a FFT plan.
-
-        Parameters
-        ----------
-        shape: tuple
-            Shape of the input data.
-        dtype: type
-            Data type of the input data.
-        data: numpy.ndarray, optional
-            Input data. If provided, the arguments "shape" and "dtype" are ignored,
-            and are instead infered from "data".
-        shape_out: tuple, optional
-            Shape of output data. By default, the data has the same shape as the input
-            data (in case of C2C transform), or a shape with the last dimension halved
-            (in case of R2C transform). If shape_out is provided, it must be greater
-            or equal than the shape of input data. In this case, FFT is performed
-            with zero-padding.
-        double_precision: bool, optional
-            If set to True, computations will be done in double precision regardless
-            of the input data type.
-        """
-        if shape is None and dtype is None and data is None:
-            raise ValueError("Please provide either (shape and dtype) or data")
-        if data is not None:
-            self.shape = data.shape
-            self.dtype = data.dtype
-        else:
-            self.shape = shape
-            self.dtype = dtype
-        self.user_data = data
-        self.double_precision = double_precision
-        self.set_dtypes()
-        self.calc_shape()
-
-    def set_dtypes(self):
-        dtypes_mapping = {
-            np.dtype("float32"): np.complex64,
-            np.dtype("float64"): np.complex128,
-            np.dtype("complex64"): np.complex64,
-            np.dtype("complex128"): np.complex128
-        }
-        dp = {
-            np.dtype("float32"): np.float64,
-            np.dtype("complex64"): np.complex128
-        }
-        self.dtype_in = np.dtype(self.dtype)
-        if self.double_precision and self.dtype in dp:
-            self.dtype_in = dp[self.dtype_in]
-        self.dtype_out = dtypes_mapping[self.dtype_in]
 
 
-    def calc_shape(self):
-        # TODO allow for C2C even for real input data (?)
-        if self.dtype_in in [np.float32, np.float64]:
-            last_dim = self.shape[-1]//2 + 1
-            # FFTW convention
-            self.shape_out = self.shape[:-1] + (self.shape[-1]//2 + 1,)
-        else:
-            self.shape_out = self.shape
 
