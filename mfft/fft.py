@@ -114,6 +114,8 @@ def FFT(
         data=data,
         shape_out=shape_out,
         double_precision=double_precision,
+        axes=axes,
+        normalize=normalize,
         **kwargs
     )
     return F

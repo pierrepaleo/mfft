@@ -66,6 +66,8 @@ class FFTW(BaseFFT):
             data=data,
             shape_out=shape_out,
             double_precision=double_precision,
+            axes=axes,
+            normalize=normalize,
         )
         self.axes = axes
         self.normalize = normalize
@@ -141,8 +143,8 @@ class FFTW(BaseFFT):
             flags=self.fftw_flags,
             threads=self.num_threads,
             planning_timelimit=self.fftw_planning_timelimit,
+            # the following seems to be taken into account only when using __call__
             ortho=self.fftw_norm_mode["ortho"],
-            normalise_idft=self.fftw_norm_mode["normalize"],
         )
 
     def compute_inverse_plan(self):
@@ -154,6 +156,7 @@ class FFTW(BaseFFT):
             flags=self.fftw_flags,
             threads=self.num_threads,
             planning_timelimit=self.fftw_planning_timelimit,
+            # the following seem to be taken into account only when using __call__
             ortho=self.fftw_norm_mode["ortho"],
             normalise_idft=self.fftw_norm_mode["normalize"],
         )
@@ -161,17 +164,26 @@ class FFTW(BaseFFT):
     def fft(self, array, output=None):
         data_in = self.set_input_data(data=array, copy=True)
         data_out = self.set_output_data(data=output, copy=False)
-        self.plan_forward.update_arrays(data_in, data_out)
-        self.plan_forward.execute()
-        assert id(self.plan_forward.output_array) == id(self.data_out) == id(data_out)
+        # execute.__call__ does both update_arrays() and normalization
+        self.plan_forward(
+            input_array=data_in,
+            output_array=data_out,
+            ortho=self.fftw_norm_mode["ortho"],
+        )
+        assert id(self.plan_forward.output_array) == id(self.data_out) == id(data_out) # DEBUG
         return data_out
 
     def ifft(self, array, output=None):
         data_in = self.set_output_data(data=array, copy=True)
         data_out = self.set_input_data(data=output, copy=False)
-        self.plan_inverse.update_arrays(data_in, data_out)
-        self.plan_inverse.execute()
-        assert id(self.plan_inverse.output_array) == id(self.data_in) == id(data_out)
+        # execute.__call__ does both update_arrays() and normalization
+        self.plan_inverse(
+            input_array=data_in,
+            output_array=data_out,
+            ortho=self.fftw_norm_mode["ortho"],
+            normalise_idft=self.fftw_norm_mode["normalize"]
+        )
+        assert id(self.plan_inverse.output_array) == id(self.data_in) == id(data_out) # DEBUG
         return data_out
 
 
