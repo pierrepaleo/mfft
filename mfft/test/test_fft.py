@@ -49,11 +49,18 @@ class TestFFT(unittest.TestCase):
         #~ self.params = params
 
     def setUp(self):
+        self.tol = {
+            "float32": 1e-4,
+        }
         self.data = ascent().astype("float32")
+        self.data1d = self.data[:, 0] # non-contiguous data
         #~ self.F = FFT(data=self.data[:, 1], check_alignment=True)
 
     def tearDown(self):
         self.data = None
+
+    def calc_mae(self, arr1, arr2):
+        return np.max(np.abs(arr1 - arr2))
 
 
     def test_plan_creation(self):
@@ -65,8 +72,35 @@ class TestFFT(unittest.TestCase):
 
     def test_forward_FFT(self):
         data1d = self.data[:, 0]
-        F = FFT(data=data1d, backend="fftw", check_alignment=True)
+        F = FFT(data=self.data1d, backend="fftw", check_alignment=True)
+        res = F.fft(self.data1d)
+
+    def test_fft_modes(self):
+        data1d = self.data1d
+        N = data1d.size
+        res_np = np.fft.rfft(self.data1d)
+
+        # rescale
+        F = FFT(data=data1d, backend="fftw", check_alignment=True, normalize="rescale")
         res = F.fft(data1d)
+        self.assertLess(self.calc_mae(res, res_np), self.tol["float32"] * data1d.max())
+        res2 = F.ifft(res)
+        self.assertLess(self.calc_mae(res2, data1d), self.tol["float32"])
+        # ortho
+        F = FFT(data=data1d, backend="fftw", check_alignment=True, normalize="ortho")
+        res = F.fft(data1d)
+        self.assertLess(self.calc_mae(res, res_np/np.sqrt(N)), self.tol["float32"] * data1d.max())
+        res2 = F.ifft(res)
+        self.assertLess(self.calc_mae(res2, data1d), self.tol["float32"])
+        # none
+        F = FFT(data=data1d, backend="fftw", check_alignment=True, normalize="none")
+        res = F.fft(data1d)
+        mae = np.max(np.abs(res - res_np))
+        self.assertLess(mae, self.tol["float32"] * data1d.max())
+        res2 = F.ifft(res)
+        self.assertLess(self.calc_mae(res2, data1d * N), self.tol["float32"] * data1d.max())
+
+
 
 
 
@@ -75,6 +109,7 @@ class TestFFT(unittest.TestCase):
 def suite():
     testSuite = unittest.TestSuite()
     testSuite.addTest(TestFFT("test_plan_creation"))
+    testSuite.addTest(TestFFT("test_fft_modes"))
     #~ testSuite.addTest(TestFFT("test_forward_FFT"))
     #~ for test_name, test_params in test_cases.items():
         #~ testSuite.addTest(parameterize(TestFFT, name=test_name, params=test_params))

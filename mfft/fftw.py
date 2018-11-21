@@ -145,6 +145,7 @@ class FFTW(BaseFFT):
             planning_timelimit=self.fftw_planning_timelimit,
             # the following seems to be taken into account only when using __call__
             ortho=self.fftw_norm_mode["ortho"],
+            normalise_idft=self.fftw_norm_mode["normalize"],
         )
 
     def compute_inverse_plan(self):
