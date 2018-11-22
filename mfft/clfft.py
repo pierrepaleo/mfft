@@ -94,32 +94,28 @@ class CLFFT(BaseFFT):
             raise ValueError("Invalid data type: expected %s, got %s" %
                 (dtype, array.dtype)
             )
+
+    def set_data(self, dst, src, shape, dtype, copy=True):
+        """
+        dst is a device array owned by the current instance
+        """
+        self.check_array(src, shape, dtype)
         if isinstance(array, np.ndarray):
-            # numpy stuff
-
-            if not(arr.flags["C_CONTIGUOUS"] and arr.dtype == dtype):
-                array2 = np.ascontiguousarray(array, dtype=dtype)
+            if not(src.flags["C_CONTIGUOUS"]):
+                src_ref = np.ascontiguousarray(src, dtype=dtype)
             else:
-                array2 = array
-
-
-
-
-
-
-        #~ if not(arr.flags["C_CONTIGUOUS"] and arr.dtype == dtype):
-            #~ return np.ascontiguousarray(arr, dtype=dtype)
-        #~ else:
-            #~ return arr
+                src_ref = src
         elif isinstance(array, parray.Array):
-            # parray styff
+            src_ref = src.data
         else:
             raise ValueError(
                 "Invalid array type %s, expected numpy.ndarray or pyopencl.array" %
                 type(array)
             )
-
-
+        # working on underlying buffer is notably faster
+        evt = cl.enqueue_copy(self.queue, dst.data, src_ref)
+        evt.wait()
+        return dst
 
     def init_context_queue(self):
         if self.ctx is None:
@@ -144,7 +140,6 @@ class CLFFT(BaseFFT):
             axes=self.axes
         )
 
-
     def fft(self, array, output=None, async=False):
         """
         Perform a
@@ -160,14 +155,13 @@ class CLFFT(BaseFFT):
             Whether to perform operation in asynchronous mode. Default is False,
             meaning that we wait for transform to complete.
         """
-        data_in = self.set_input_data(data=array, copy=True)
-        data_out = self.set_output_data(data=output, copy=False)
+        data_in = self.set_input_data(array, copy=True)
+        data_out = self.set_output_data(output, copy=False)
         event, = self.plan_forward.enqueue()
         if not(async):
             event.wait()
-
-        #~ assert id(self.plan_forward.output_array) == id(self.data_out) == id(data_out) # DEBUG
-
+        res = output or self.d_output.get()
+        return res
 
 
 

@@ -103,9 +103,6 @@ class BaseFFT(object):
             # FFTW convention
             self.axes = tuple(range(len(self.shape))[::-1])
 
-    def check_array(self, array, dtype, copy=True):
-        raise ValueError("This should be implemented by back-end FFT")
-
     def _allocate(self, shape, dtype):
         raise ValueError("This should be implemented by back-end FFT")
 
@@ -119,9 +116,15 @@ class BaseFFT(object):
             self.data_allocated = True
 
     def set_input_data(self, data, copy=True):
-        return self.set_data(self.data_in, data, self.shape, self.dtype_in, copy=copy)
+        if data is None:
+            return self.data_in
+        else:
+            return self.set_data(self.data_in, data, self.shape, self.dtype_in, copy=copy)
 
     def set_output_data(self, data, copy=True):
-        return self.set_data(self.data_out, data, self.shape_out, self.dtype_out, copy=copy)
+        if data is None:
+            return self.data_out
+        else:
+            return self.set_data(self.data_out, data, self.shape_out, self.dtype_out, copy=copy)
 
 
