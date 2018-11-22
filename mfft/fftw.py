@@ -34,9 +34,6 @@ except ImportError:
 
 # TODO support in-place ? In this case, pyfftw.builders cannot be used
 class FFTW(BaseFFT):
-    """
-    TODO docstring
-    """
     def __init__(
         self,
         shape=None,
@@ -44,7 +41,7 @@ class FFTW(BaseFFT):
         data=None,
         shape_out=None,
         double_precision=False,
-        axes=(-1,),
+        axes=None,
         normalize="rescale",
         check_alignment=False,
         num_threads=1,
@@ -60,6 +57,8 @@ class FFTW(BaseFFT):
         num_threads: int
             Number of threads for computing FFT.
         """
+        if not(__have_fftw__):
+            raise ImportError("Please install pyfftw to use the FFTW back-end")
         super().__init__(
             shape=shape,
             dtype=dtype,
@@ -69,13 +68,10 @@ class FFTW(BaseFFT):
             axes=axes,
             normalize=normalize,
         )
-        self.axes = axes
-        self.normalize = normalize
         self.check_alignment = check_alignment
         self.num_threads = num_threads
 
-        self.set_input_data()
-        self.set_output_data()
+        self.allocate_arrays()
         self.set_fftw_flags()
         self.compute_forward_plan()
         self.compute_inverse_plan()
@@ -94,13 +90,20 @@ class FFTW(BaseFFT):
             )
         self.fftw_norm_mode = self.fftw_norm_modes[self.normalize]
 
-    def check_array(self, array, dtype, copy=True):
+    def _allocate(self, shape, dtype):
+        return pyfftw.zeros_aligned(shape, dtype=dtype)
+
+    def check_array(self, array, shape, dtype, copy=True):
         """
         Check that a given array is compatible with the FFTW plans,
         in terms of alignment and data type.
         If the provided array does not meet any of the checks, a new array
         is returned.
         """
+        if array.shape != shape:
+            raise ValueError("Invalid data shape: expected %s, got %s" %
+                (shape, array.shape)
+            )
         if array.dtype != dtype:
             raise ValueError("Invalid data type: expected %s, got %s" %
                 (dtype, array.dtype)
@@ -115,24 +118,9 @@ class FFTW(BaseFFT):
                 array2 = array
         return array2
 
-    def set_input_data(self, data=None, copy=True):
-        if data is not None:
-            self.data_in = self.check_array(data, self.dtype_in, copy=copy)
-        else:
-            if not(self.data_in_allocated):
-                self.data_in = pyfftw.zeros_aligned(self.shape, dtype=self.dtype_in)
-                self.data_in_allocated = True
-        return self.data_in
-
-    # TODO padding (or in BaseFFT.calc_shape)
-    def set_output_data(self, data=None, copy=True):
-        if data is not None:
-            self.data_out = self.check_array(data, self.dtype_out, copy=copy)
-        else:
-            if not(self.data_out_allocated):
-                self.data_out = pyfftw.zeros_aligned(self.shape_out, dtype=self.dtype_out)
-                self.data_out_allocated = True
-        return self.data_out
+    def set_data(self, dst, src, shape, dtype, copy=True):
+        dst = self.check_array(src, shape, dtype, copy=copy)
+        return dst
 
     def compute_forward_plan(self):
         self.plan_forward = pyfftw.FFTW(
@@ -163,8 +151,8 @@ class FFTW(BaseFFT):
         )
 
     def fft(self, array, output=None):
-        data_in = self.set_input_data(data=array, copy=True)
-        data_out = self.set_output_data(data=output, copy=False)
+        data_in = self.set_input_data(array, copy=True)
+        data_out = self.set_output_data(output, copy=False)
         # execute.__call__ does both update_arrays() and normalization
         self.plan_forward(
             input_array=data_in,
@@ -175,8 +163,8 @@ class FFTW(BaseFFT):
         return data_out
 
     def ifft(self, array, output=None):
-        data_in = self.set_output_data(data=array, copy=True)
-        data_out = self.set_input_data(data=output, copy=False)
+        data_in = self.set_output_data(array, copy=True)
+        data_out = self.set_input_data(output, copy=False)
         # execute.__call__ does both update_arrays() and normalization
         self.plan_inverse(
             input_array=data_in,
@@ -186,10 +174,4 @@ class FFTW(BaseFFT):
         )
         assert id(self.plan_inverse.output_array) == id(self.data_in) == id(data_out) # DEBUG
         return data_out
-
-
-
-
-
-
 

@@ -1,0 +1,5 @@
+- [OK] FFTW backend
+- [WIP] CLFFT backend
+- CUFFT backend
+- In-place FFT
+- FFT with zero-padding via shape_out

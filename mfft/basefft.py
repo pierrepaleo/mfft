@@ -38,8 +38,8 @@ class BaseFFT(object):
             self.shape = self.data.shape
             self.dtype = self.data.dtype
         self.user_data = self.data
-        self.data_in_allocated = False
-        self.data_out_allocated = False
+        self.data_allocated = False
+        self.calc_axes()
         self.set_dtypes()
         self.calc_shape()
 
@@ -51,7 +51,7 @@ class BaseFFT(object):
             "data": None,
             "double_precision": False,
             "shape_out": None,
-            "axes": (-1,),
+            "axes": None,
             "normalize": "rescale",
         }
         for arg_name, default_val in expected_args.items():
@@ -97,3 +97,31 @@ class BaseFFT(object):
             self.shape_out = self.shape[:-1] + (self.shape[-1]//2 + 1,)
         else:
             self.shape_out = self.shape
+
+    def calc_axes(self):
+        if self.axes is None:
+            # FFTW convention
+            self.axes = tuple(range(len(self.shape))[::-1])
+
+    def check_array(self, array, dtype, copy=True):
+        raise ValueError("This should be implemented by back-end FFT")
+
+    def _allocate(self, shape, dtype):
+        raise ValueError("This should be implemented by back-end FFT")
+
+    def set_data(self, dst, src, shape, dtype, copy=True):
+        raise ValueError("This should be implemented by back-end FFT")
+
+    def allocate_arrays(self):
+        if not(self.data_allocated):
+            self.data_in = self._allocate(self.shape, self.dtype_in)
+            self.data_out = self._allocate(self.shape_out, self.dtype_out)
+            self.data_allocated = True
+
+    def set_input_data(self, data, copy=True):
+        return self.set_data(self.data_in, data, self.shape, self.dtype_in, copy=copy)
+
+    def set_output_data(self, data, copy=True):
+        return self.set_data(self.data_out, data, self.shape_out, self.dtype_out, copy=copy)
+
+
