@@ -79,6 +79,10 @@ class CLFFT(BaseFFT):
         self.allocate_arrays()
         self.compute_forward_plan()
         self.compute_inverse_plan()
+        self.refs = {
+            "data_in": self.data_in,
+            "data_out": self.data_out,
+        }
 
     def _allocate(self, shape, dtype):
         return parray.zeros(self.queue, shape, dtype=dtype)
@@ -95,27 +99,46 @@ class CLFFT(BaseFFT):
                 (dtype, array.dtype)
             )
 
-    def set_data(self, dst, src, shape, dtype, copy=True):
+    def set_data(self, dst, src, shape, dtype, copy=True, name=None):
         """
         dst is a device array owned by the current instance
+        (either self.data_in or self.data_out)
         """
         self.check_array(src, shape, dtype)
         if isinstance(array, np.ndarray):
             if not(src.flags["C_CONTIGUOUS"]):
-                src_ref = np.ascontiguousarray(src, dtype=dtype)
-            else:
-                src_ref = src
+                src = np.ascontiguousarray(src, dtype=dtype)
+            # working on underlying buffer is notably faster
+            #~ dst[:] = src[:]
+            evt = cl.enqueue_copy(self.queue, dst.data, src)
+            evt.wait()
         elif isinstance(array, parray.Array):
-            src_ref = src.data
+            if copy:
+                # working on underlying buffer is notably faster
+                #~ dst[:] = src[:]
+                evt = cl.enqueue_copy(self.queue, dst.data, src_ref)
+                evt.wait()
+            else:
+                # No copy, use the data as self.d_input or self.d_output
+                # (this prevents the use of in-place transforms, however).
+                # We have to keep their old references.
+                if name is None:
+                    # This should not happen
+                    raise ValueError("Please provide either copy=True or name != None")
+                assert id(self.refs[name]) == id(dst) # DEBUG
+                setattr(self, name, src)
         else:
             raise ValueError(
                 "Invalid array type %s, expected numpy.ndarray or pyopencl.array" %
                 type(array)
             )
-        # working on underlying buffer is notably faster
-        evt = cl.enqueue_copy(self.queue, dst.data, src_ref)
-        evt.wait()
         return dst
+
+
+    def recover_array_references(self):
+        self.d_input = self.refs["data_in"]
+        self.d_output = self.refs["data_out"]
+
 
     def init_context_queue(self):
         if self.ctx is None:
@@ -140,6 +163,18 @@ class CLFFT(BaseFFT):
             axes=self.axes
         )
 
+    def update_forward_plan_arrays(self):
+        self.plan_forward.data = self.data_in
+        self.plan_forward.result = self.data_out
+
+    def update_inverse_plan_arrays(self):
+        self.plan_inverse.data = self.data_out
+        self.plan_inverse.result = self.data_in
+
+
+
+
+
     def fft(self, array, output=None, async=False):
         """
         Perform a
@@ -155,18 +190,31 @@ class CLFFT(BaseFFT):
             Whether to perform operation in asynchronous mode. Default is False,
             meaning that we wait for transform to complete.
         """
-        data_in = self.set_input_data(array, copy=True)
-        data_out = self.set_output_data(output, copy=False)
+        data_in = self.set_input_data(array)
+        data_out = self.set_output_data(output)
+        self.update_forward_plan_arrays()
         event, = self.plan_forward.enqueue()
         if not(async):
             event.wait()
         res = output or self.d_output.get()
+        self.recover_array_references()
         return res
 
 
 
+"""
+pour fft(d_user_in):
+  - out = None
+  - pas de copie: self.d_in = d_user_in; self.fft;
+  - self.recover_d_in (dans tous les cas)
+  - on retourne self.d_out (pas de recover pour d_out)
+     par contre si l'utilisateur modifie le resultat (self.d_out) ...
+     pas grave si d_out est écrasé par une fft ulterieure
 
+pour fft(d_user_in, output=d_user_out):
+    - self.d_out = d_user_out; self.d_in = self.d_user_in; self.fft;
+    - self.recover_d_in
+    - self.recover_d_out
+    - on retourne d_user_out (et pas self.d_out qui est maintenant different)
 
-
-
-
+"""

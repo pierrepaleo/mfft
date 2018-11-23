@@ -118,7 +118,7 @@ class FFTW(BaseFFT):
                 array2 = array
         return array2
 
-    def set_data(self, dst, src, shape, dtype, copy=True):
+    def set_data(self, dst, src, shape, dtype, copy=True, name=None):
         dst = self.check_array(src, shape, dtype, copy=copy)
         return dst
 

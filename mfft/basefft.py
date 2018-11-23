@@ -119,12 +119,12 @@ class BaseFFT(object):
         if data is None:
             return self.data_in
         else:
-            return self.set_data(self.data_in, data, self.shape, self.dtype_in, copy=copy)
+            return self.set_data(self.data_in, data, self.shape, self.dtype_in, copy=copy, name="data_in")
 
     def set_output_data(self, data, copy=True):
         if data is None:
             return self.data_out
         else:
-            return self.set_data(self.data_out, data, self.shape_out, self.dtype_out, copy=copy)
+            return self.set_data(self.data_out, data, self.shape_out, self.dtype_out, copy=copy, name="data_out")
 
 
