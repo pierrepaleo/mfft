@@ -105,7 +105,9 @@ class CLFFT(BaseFFT):
     def set_data(self, dst, src, shape, dtype, copy=True, name=None):
         """
         dst is a device array owned by the current instance
-        (either self.data_in or self.data_out)
+        (either self.data_in or self.data_out).
+
+        copy is ignored for device<-> arrays.
         """
         self.check_array(src, shape, dtype)
         if isinstance(src, np.ndarray):
@@ -116,20 +118,14 @@ class CLFFT(BaseFFT):
             evt = cl.enqueue_copy(self.queue, dst.data, src)
             evt.wait()
         elif isinstance(src, parray.Array):
-            if copy:
-                # working on underlying buffer is notably faster
-                #~ dst[:] = src[:]
-                evt = cl.enqueue_copy(self.queue, dst.data, src_ref)
-                evt.wait()
-            else:
-                # No copy, use the data as self.d_input or self.d_output
-                # (this prevents the use of in-place transforms, however).
-                # We have to keep their old references.
-                if name is None:
-                    # This should not happen
-                    raise ValueError("Please provide either copy=True or name != None")
-                assert id(self.refs[name]) == id(dst) # DEBUG
-                setattr(self, name, src)
+            # No copy, use the data as self.d_input or self.d_output
+            # (this prevents the use of in-place transforms, however).
+            # We have to keep their old references.
+            if name is None:
+                # This should not happen
+                raise ValueError("Please provide either copy=True or name != None")
+            assert id(self.refs[name]) == id(dst) # DEBUG
+            setattr(self, name, src)
         else:
             raise ValueError(
                 "Invalid array type %s, expected numpy.ndarray or pyopencl.array" %
@@ -179,9 +175,6 @@ class CLFFT(BaseFFT):
         self.plan_inverse.result = self.data_in
 
 
-
-
-
     def fft(self, array, output=None, async=False):
         """
         Perform a
@@ -197,15 +190,52 @@ class CLFFT(BaseFFT):
             Whether to perform operation in asynchronous mode. Default is False,
             meaning that we wait for transform to complete.
         """
-        data_in = self.set_input_data(array)
-        data_out = self.set_output_data(output)
+        data_in = self.set_input_data(array, copy=False)
+        data_out = self.set_output_data(output, copy=False)
         self.update_forward_plan_arrays()
         event, = self.plan_forward.enqueue()
         if not(async):
             event.wait()
-        res = output or self.data_out.get()
+        if output is not None:
+            res = output
+        else:
+            res = self.data_out.get()
         self.recover_array_references()
         return res
+
+
+    def ifft(self, array, output=None, async=False):
+        """
+        Perform a
+        (inverse) Fast Fourier Transform.
+
+        Parameters
+        ----------
+        array: numpy.ndarray or pyopencl.array
+            Input data. Must be consistent with the current context.
+        output: numpy.ndarray or pyopencl.array, optional
+            Output data. By default, output is a numpy.ndarray.
+        async: bool, optional
+            Whether to perform operation in asynchronous mode. Default is False,
+            meaning that we wait for transform to complete.
+        """
+        data_in = self.set_output_data(array, copy=False)
+        data_out = self.set_input_data(output, copy=False)
+        self.update_inverse_plan_arrays()
+        event, = self.plan_forward.enqueue()
+        if not(async):
+            event.wait()
+        if output is not None:
+            res = output
+        else:
+            res = self.data_in.get()
+        self.recover_array_references()
+        return res
+
+
+
+
+
 
 
     def __del__(self):

@@ -58,7 +58,7 @@ def FFT(
     data=None,
     shape_out=None,
     double_precision=False,
-    axes=(-1,),
+    axes=None,
     normalize="rescale",
     backend="numpy",
     **kwargs
