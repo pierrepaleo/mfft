@@ -30,7 +30,7 @@ try:
     import pyopencl as cl
     import pyopencl.array as parray
 except ImportError:
-    __have_pyopencl__ = False
+    __have_clfft__ = False
 try:
     from gpyfft.fft import FFT as cl_fft
     __have_clfft__ = True
@@ -61,7 +61,7 @@ class CLFFT(BaseFFT):
             If set to True, computations will be done with "fast math" mode,
             i.e more speed but less accuracy.
         """
-        if not(__have_clfft__) or not(__have_pyopencl__):
+        if not(__have_clfft__) or not(__have_clfft__):
             raise ImportError("Please install pyopencl and gpyfft to use the OpenCL back-end")
 
         super().__init__(
@@ -75,8 +75,11 @@ class CLFFT(BaseFFT):
         )
         self.ctx = ctx
         self.fast_math = fast_math
+        self.backend = "clfft"
+
         self.init_context_queue()
         self.allocate_arrays()
+        self.real_transform = np.isrealobj(self.data_in)
         self.compute_forward_plan()
         self.compute_inverse_plan()
         self.refs = {
@@ -105,14 +108,14 @@ class CLFFT(BaseFFT):
         (either self.data_in or self.data_out)
         """
         self.check_array(src, shape, dtype)
-        if isinstance(array, np.ndarray):
+        if isinstance(src, np.ndarray):
             if not(src.flags["C_CONTIGUOUS"]):
                 src = np.ascontiguousarray(src, dtype=dtype)
             # working on underlying buffer is notably faster
             #~ dst[:] = src[:]
             evt = cl.enqueue_copy(self.queue, dst.data, src)
             evt.wait()
-        elif isinstance(array, parray.Array):
+        elif isinstance(src, parray.Array):
             if copy:
                 # working on underlying buffer is notably faster
                 #~ dst[:] = src[:]
@@ -130,37 +133,41 @@ class CLFFT(BaseFFT):
         else:
             raise ValueError(
                 "Invalid array type %s, expected numpy.ndarray or pyopencl.array" %
-                type(array)
+                type(src)
             )
         return dst
 
 
     def recover_array_references(self):
-        self.d_input = self.refs["data_in"]
-        self.d_output = self.refs["data_out"]
+        self.data_in = self.refs["data_in"]
+        self.data_out = self.refs["data_out"]
 
 
     def init_context_queue(self):
         if self.ctx is None:
             self.ctx = cl.create_some_context()
-        self.queue = cl.CommandQueue(ctx)
+        self.queue = cl.CommandQueue(self.ctx)
 
     def compute_forward_plan(self):
         self.plan_forward = cl_fft(
             self.ctx,
             self.queue,
             self.data_in,
-            self.data_out,
-            axes=self.axes
+            out_array=self.data_out,
+            axes=self.axes,
+            fast_math=self.fast_math,
+            real=self.real_transform,
         )
 
     def compute_inverse_plan(self):
-        self.plan_forward = cl_fft(
+        self.plan_inverse = cl_fft(
             self.ctx,
             self.queue,
             self.data_out,
-            self.data_in,
-            axes=self.axes
+            out_array=self.data_in,
+            axes=self.axes,
+            fast_math=self.fast_math,
+            real=self.real_transform,
         )
 
     def update_forward_plan_arrays(self):
@@ -196,10 +203,18 @@ class CLFFT(BaseFFT):
         event, = self.plan_forward.enqueue()
         if not(async):
             event.wait()
-        res = output or self.d_output.get()
+        res = output or self.data_out.get()
         self.recover_array_references()
         return res
 
+
+    def __del__(self):
+        # It seems that gpyfft underlying clFFT destructors are not called.
+        # This results in the following warning:
+        #   Warning:  Program terminating, but clFFT resources not freed.
+        #   Please consider explicitly calling clfftTeardown( )
+        del self.plan_forward
+        del self.plan_inverse
 
 
 """

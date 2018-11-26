@@ -70,6 +70,7 @@ class FFTW(BaseFFT):
         )
         self.check_alignment = check_alignment
         self.num_threads = num_threads
+        self.backend = "fftw"
 
         self.allocate_arrays()
         self.set_fftw_flags()

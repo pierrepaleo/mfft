@@ -66,7 +66,7 @@ class TestFFT(unittest.TestCase):
     def test_plan_creation(self):
         #~ plan_numpy = FFT(data=self.data[:, 0], backend="numpy")
         plan_fftw = FFT(data=self.data[:, 0], backend="fftw", check_alignment=True)
-        #~ plan_opencl = FFT(data=self.data[:, 0], backend="opencl")
+        plan_opencl = FFT(data=self.data[:, 0], backend="opencl")
         #~ plan_cuda = FFT(data=self.data[:, 0], backend="cuda")
 
 
