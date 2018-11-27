@@ -28,11 +28,28 @@
 import numpy as np
 import unittest
 from scipy.misc import ascent
-#~ from silx.opencl import ocl
-
 from mfft.fft import FFT
 
+# http://eli.thegreenplace.net/2011/08/02/python-unit-testing-parametrized-test-cases/
+class ParametrizedTestCase(unittest.TestCase):
+    """ TestCase classes that want to be parametrized should
+        inherit from this class.
+    """
+    def __init__(self, methodName='runTest', param=None):
+        super(ParametrizedTestCase, self).__init__(methodName)
+        self.param = param
 
+    @staticmethod
+    def parametrize(testcase_klass, param=None):
+        """ Create a suite containing all tests taken from the given
+            subclass, passing them the parameter 'param'.
+        """
+        testloader = unittest.TestLoader()
+        testnames = testloader.getTestCaseNames(testcase_klass)
+        suite = unittest.TestSuite()
+        for name in testnames:
+            suite.addTest(testcase_klass(name, param=param))
+        return suite
 
 
 class TransformInfos(object):
@@ -73,30 +90,11 @@ class TransformInfos(object):
         self.sizes["batched_2D"] = self.sizes["3D"]
 
 
-class TestFFT(unittest.TestCase):
-
-    @classmethod
-    def setUpClass(cls):
-        super(TestFFT, cls).setUpClass()
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
-    #~ def __init__(self, methodName='runTest', name=None, params=None):
-        #~ unittest.TestCase.__init__(self, methodName)
-        #~ self.name = name
-        #~ self.params = params
-
-    def setUp(self):
-        self.tol = {
-            "float32": 1e-4,
-            "float64": 1e-9
-        }
+class TestData(object):
+    def __init__(self):
         self.data = ascent().astype("float32")
         self.data1d = self.data[:, 0] # non-contiguous data
         self.data3d = np.tile(self.data[:128, :128], (128, 1, 1))
-        self.transform_infos = TransformInfos()
         self.data_refs = {
             1: self.data1d,
             2: self.data,
@@ -104,8 +102,34 @@ class TestFFT(unittest.TestCase):
         }
 
 
+
+class TestFFT(ParametrizedTestCase):
+
+    """
+    @classmethod
+    def setUpClass(cls):
+        super(TestFFT, cls).setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+    """
+
+    def setUp(self):
+        self.tol = {
+            "float32": 1e-4,
+            "float64": 1e-9
+        }
+        self.backend = self.param["backend"]
+        self.trdim = self.param["trdim"]
+        self.mode = self.param["mode"]
+        self.size = self.param["size"]
+        self.transform_infos = self.param["transform_infos"]
+        self.test_data = self.param["test_data"]
+
     def tearDown(self):
-        self.data = None
+        pass
+
 
     def calc_mae(self, arr1, arr2):
         """
@@ -114,25 +138,15 @@ class TestFFT(unittest.TestCase):
         return np.max(np.abs(arr1 - arr2))
 
 
-    def test_fft(self, backend, trdim, mode, size):
-        """
-        Test FFT with a given configuration.
+    def test_fft(self):
+        ndim = len(self.size)
+        input_data = self.test_data.data_refs[ndim].astype(self.transform_infos.modes[self.mode])
 
-        Parameters
-        ----------
-        backend: str
-            FFT backend. Can be numpy, opencl, cuda, fftw.
-        trdim: str
-            transform dimensions. Can be 1D, 2D, 3D, batched_1D, batched_2D
-        mode: str
-            transform mode. Can be R2C, C2R, R2C_double, C2C_double
-        size: tuple
-            transform input data shape.
-        """
-        ndim = len(size)
-        input_data = self.data_refs[ndim].astype(self.transform_infos.modes[mode])
-
-        F = FFT(data=input_data, axes=self.transform_infos.axes[trdim], backend=backend)
+        F = FFT(
+            data=input_data,
+            axes=self.transform_infos.axes[self.trdim],
+            backend=self.backend
+        )
         self.assertTrue(F is not None)
 
 
@@ -140,27 +154,9 @@ class TestFFT(unittest.TestCase):
 
 
 
-    def test_dummy(self):
-        for backend in self.transform_infos.backends:
-            print("Testing backend: %s" % backend)
-            for trdim in self.transform_infos.dimensions:
-                print("   testing %s" % trdim)
-                for mode in self.transform_infos.modes:
-                    print("   testing %s:%s" % (trdim, mode))
-                    for size in self.transform_infos.sizes[trdim]:
-                        print("      size: %s" % str(size))
-                        self.test_fft(backend, trdim, mode, size)
 
 
-
-
-
-
-
-
-
-
-
+    '''
 
 
     def test_plan_creation(self):
@@ -208,59 +204,50 @@ class TestFFT(unittest.TestCase):
         F = FFT(data=self.data, backend="opencl")
         # input: host, output: host
 
+    '''
 
 
 
 
-
-def suite():
+def test_fft(backend, dimensions=None):
     testSuite = unittest.TestSuite()
-    testSuite.addTest(TestFFT("test_plan_creation"))
-    testSuite.addTest(TestFFT("test_fft_modes"))
-    testSuite.addTest(TestFFT("test_dummy"))
 
-    #~ testSuite.addTest(TestFFT("test_forward_FFT"))
-    #~ for test_name, test_params in test_cases.items():
-        #~ testSuite.addTest(parameterize(TestFFT, name=test_name, params=test_params))
+    transform_infos = TransformInfos()
+    test_data = TestData()
+    dimensions = dimensions or transform_infos.dimensions
+
+    print("Testing backend: %s" % backend)
+    for trdim in dimensions:
+        print("   testing %s" % trdim)
+        for mode in transform_infos.modes:
+            print("   testing %s:%s" % (trdim, mode))
+            for size in transform_infos.sizes[trdim]:
+                print("      size: %s" % str(size))
+                testcase = ParametrizedTestCase.parametrize(
+                    TestFFT,
+                    param={
+                        "transform_infos": transform_infos,
+                        "test_data": test_data,
+                        "backend": backend,
+                        "trdim": trdim,
+                        "mode": mode,
+                        "size": size,
+                    }
+                )
+                testSuite.addTest(testcase)
     return testSuite
 
 
+def test_all():
+    suite = unittest.TestSuite()
+    #~ suite.addTest(test_fft("numpy"))
+    suite.addTest(test_fft("fftw"))
+    #~ suite.addTest(test_fft("opencl"))
+    #~ suite.addTest(test_fft("cuda"))
+    return suite
+
+
 if __name__ == '__main__':
-    unittest.main(defaultTest="suite")
+    unittest.main(defaultTest="test_all")
 
 
-
-"""
-Test plan
-----------
-
-- "Odd" sized transform
-- 1D, batched 1D, 2D, batched 2D, 3D
-- with/without double precision
-- Forward and inverse
-
-Cuda/OpenCL:
-  - host input, host output
-  - device input, host output
-  - host input, device output
-  - device input, device output
-
-for backend in backends:
-    for trdim in ["1d", "batched_1d", "2d", ...]:
-        for mode in ["R2C", "C2C", R2C_double", "C2C_double"]:
-            for size in sizes[trdim]: # odd sizes, pow 2, ...
-                test_forward()
-                test_inverse()
-
-
-1d:     [(512,), (511,)]
-b1d/2d: [(512, 512), (512, 511), (511, 512), (511, 511)]
-b2d/3d: [(128, 128, 128), (128, 128, 127), (128, 127, 128), (127, 128, 128),
-         (128, 127, 127), (127, 128, 127), (127, 127, 128), (127, 127, 127)]
-
-
-
-
-
-
-"""
