@@ -77,6 +77,7 @@ class FFTW(BaseFFT):
         self.compute_forward_plan()
         self.compute_inverse_plan()
 
+
     def set_fftw_flags(self):
         self.fftw_flags = ('FFTW_MEASURE', ) # TODO
         self.fftw_planning_timelimit = None # TODO
@@ -91,8 +92,10 @@ class FFTW(BaseFFT):
             )
         self.fftw_norm_mode = self.fftw_norm_modes[self.normalize]
 
+
     def _allocate(self, shape, dtype):
         return pyfftw.zeros_aligned(shape, dtype=dtype)
+
 
     def check_array(self, array, shape, dtype, copy=True):
         """
@@ -119,9 +122,11 @@ class FFTW(BaseFFT):
                 array2 = array
         return array2
 
+
     def set_data(self, dst, src, shape, dtype, copy=True, name=None):
         dst = self.check_array(src, shape, dtype, copy=copy)
         return dst
+
 
     def compute_forward_plan(self):
         self.plan_forward = pyfftw.FFTW(
@@ -137,6 +142,7 @@ class FFTW(BaseFFT):
             normalise_idft=self.fftw_norm_mode["normalize"],
         )
 
+
     def compute_inverse_plan(self):
         self.plan_inverse = pyfftw.FFTW(
             self.data_out,
@@ -151,6 +157,7 @@ class FFTW(BaseFFT):
             normalise_idft=self.fftw_norm_mode["normalize"],
         )
 
+
     def fft(self, array, output=None):
         data_in = self.set_input_data(array, copy=True)
         data_out = self.set_output_data(output, copy=False)
@@ -162,6 +169,7 @@ class FFTW(BaseFFT):
         )
         assert id(self.plan_forward.output_array) == id(self.data_out) == id(data_out) # DEBUG
         return data_out
+
 
     def ifft(self, array, output=None):
         data_in = self.set_output_data(array, copy=True)
@@ -175,4 +183,3 @@ class FFTW(BaseFFT):
         )
         assert id(self.plan_inverse.output_array) == id(self.data_in) == id(data_out) # DEBUG
         return data_out
-

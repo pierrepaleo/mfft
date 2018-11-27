@@ -77,6 +77,7 @@ class CLFFT(BaseFFT):
         self.fast_math = fast_math
         self.backend = "clfft"
 
+        self.fix_axes()
         self.init_context_queue()
         self.allocate_arrays()
         self.real_transform = np.isrealobj(self.data_in)
@@ -86,10 +87,22 @@ class CLFFT(BaseFFT):
             "data_in": self.data_in,
             "data_out": self.data_out,
         }
+        # TODO
+        #  Either pyopencl ElementWiseKernel, or built-in clfft callbacks
+        if self.normalize != "rescale":
+            raise NotImplementedError(
+                "Normalization modes other than rescale are not implemented with OpenCL backend yet."
+            )
+
+
+    def fix_axes(self):
+        """
+        "Fix" axes. clfft does not have the same convention as FFTW/cuda/numpy.
+        """
+        self.axes = self.axes[::-1]
 
     def _allocate(self, shape, dtype):
         return parray.zeros(self.queue, shape, dtype=dtype)
-
 
 
     def check_array(self, array, shape, dtype, copy=True):
@@ -101,6 +114,7 @@ class CLFFT(BaseFFT):
             raise ValueError("Invalid data type: expected %s, got %s" %
                 (dtype, array.dtype)
             )
+
 
     def set_data(self, dst, src, shape, dtype, copy=True, name=None):
         """
@@ -144,6 +158,7 @@ class CLFFT(BaseFFT):
             self.ctx = cl.create_some_context()
         self.queue = cl.CommandQueue(self.ctx)
 
+
     def compute_forward_plan(self):
         self.plan_forward = cl_fft(
             self.ctx,
@@ -154,6 +169,7 @@ class CLFFT(BaseFFT):
             fast_math=self.fast_math,
             real=self.real_transform,
         )
+
 
     def compute_inverse_plan(self):
         self.plan_inverse = cl_fft(
@@ -166,9 +182,11 @@ class CLFFT(BaseFFT):
             real=self.real_transform,
         )
 
+
     def update_forward_plan_arrays(self):
         self.plan_forward.data = self.data_in
         self.plan_forward.result = self.data_out
+
 
     def update_inverse_plan_arrays(self):
         self.plan_inverse.data = self.data_out
@@ -233,11 +251,6 @@ class CLFFT(BaseFFT):
         return res
 
 
-
-
-
-
-
     def __del__(self):
         # It seems that gpyfft underlying clFFT destructors are not called.
         # This results in the following warning:
@@ -246,20 +259,3 @@ class CLFFT(BaseFFT):
         del self.plan_forward
         del self.plan_inverse
 
-
-"""
-pour fft(d_user_in):
-  - out = None
-  - pas de copie: self.d_in = d_user_in; self.fft;
-  - self.recover_d_in (dans tous les cas)
-  - on retourne self.d_out (pas de recover pour d_out)
-     par contre si l'utilisateur modifie le resultat (self.d_out) ...
-     pas grave si d_out est écrasé par une fft ulterieure
-
-pour fft(d_user_in, output=d_user_out):
-    - self.d_out = d_user_out; self.d_in = self.d_user_in; self.fft;
-    - self.recover_d_in
-    - self.recover_d_out
-    - on retourne d_user_out (et pas self.d_out qui est maintenant different)
-
-"""
