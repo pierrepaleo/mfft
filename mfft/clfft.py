@@ -51,7 +51,7 @@ class CLFFT(BaseFFT):
         fast_math=False,
     ):
         """
-        Initialize a FFTW plan.
+        Initialize a clfft plan.
         Please see FFT class for parameters help.
 
         CLFFT-specific parameters:

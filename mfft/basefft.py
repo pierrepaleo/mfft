@@ -101,6 +101,9 @@ class BaseFFT(object):
     def calc_axes(self):
         if self.axes is None:
             self.axes = tuple(range(len(self.shape)))
+            self.user_axes = None
+        else:
+            self.user_axes = self.axes
 
     def _allocate(self, shape, dtype):
         raise ValueError("This should be implemented by back-end FFT")

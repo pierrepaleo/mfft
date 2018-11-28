@@ -128,7 +128,6 @@ class TestFFT(ParametrizedTestCase):
         self.test_data = self.param["test_data"]
 
     def tearDown(self):
-        pass
 
 
     def calc_mae(self, arr1, arr2):
@@ -147,7 +146,8 @@ class TestFFT(ParametrizedTestCase):
             axes=self.transform_infos.axes[self.trdim],
             backend=self.backend
         )
-        self.assertTrue(F is not None)
+
+        F.fft(input_data)
 
 
 
@@ -241,8 +241,8 @@ def test_fft(backend, dimensions=None):
 def test_all():
     suite = unittest.TestSuite()
     #~ suite.addTest(test_fft("numpy"))
-    suite.addTest(test_fft("fftw"))
-    #~ suite.addTest(test_fft("opencl"))
+    #~ suite.addTest(test_fft("fftw"))
+    suite.addTest(test_fft("opencl"))
     #~ suite.addTest(test_fft("cuda"))
     return suite
 

@@ -183,3 +183,5 @@ class FFTW(BaseFFT):
         )
         assert id(self.plan_inverse.output_array) == id(self.data_in) == id(data_out) # DEBUG
         return data_out
+
+
