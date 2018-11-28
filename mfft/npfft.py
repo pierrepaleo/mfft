@@ -54,7 +54,13 @@ class NPFFT(BaseFFT):
             normalize=normalize,
         )
         self.backend = "numpy"
-        self.real_transform = np.isrealobj(self.data_in)
+        self.real_transform = False
+        if data is not None and np.isrealobj(data):
+            self.real_transform = True
+        # For numpy functions.
+        # TODO Issue warning if user wants ifft(fft(data)) = N*data ?
+        if normalize != "ortho":
+            self.normalize = None
         self.set_fft_functions()
         #~ self.allocate_arrays() # not needed for this backend
         self.compute_plans()
@@ -65,9 +71,9 @@ class NPFFT(BaseFFT):
         self._fft_functions = {
             True: {
                 1: (np.fft.rfft, np.fft.irfft),
-                2: np.fft.rfft2, np.fft.irfft2),
+                2: (np.fft.rfft2, np.fft.irfft2),
                 3: (np.fft.rfftn, np.fft.irfftn),
-            }
+            },
             False: {
                 1: (np.fft.fft, np.fft.ifft),
                 2: (np.fft.fft2, np.fft.ifft2),
@@ -80,64 +86,20 @@ class NPFFT(BaseFFT):
         return np.zeros(self.queue, shape, dtype=dtype)
 
 
-    def check_array(self, array, shape, dtype, copy=True):
-        if array.shape != shape:
-            raise ValueError("Invalid data shape: expected %s, got %s" %
-                (shape, array.shape)
-            )
-        if array.dtype != dtype:
-            raise ValueError("Invalid data type: expected %s, got %s" %
-                (dtype, array.dtype)
-            )
-
-
-    def set_data(self, dst, src, shape, dtype, copy=True, name=None):
-        """
-        dst is a device array owned by the current instance
-        (either self.data_in or self.data_out).
-
-        copy is ignored for device<-> arrays.
-        """
-        self.check_array(src, shape, dtype)
-        if isinstance(src, np.ndarray):
-            if not(src.flags["C_CONTIGUOUS"]):
-                src = np.ascontiguousarray(src, dtype=dtype)
-            # working on underlying buffer is notably faster
-            #~ dst[:] = src[:]
-            evt = cl.enqueue_copy(self.queue, dst.data, src)
-            evt.wait()
-        elif isinstance(src, parray.Array):
-            # No copy, use the data as self.d_input or self.d_output
-            # (this prevents the use of in-place transforms, however).
-            # We have to keep their old references.
-            if name is None:
-                # This should not happen
-                raise ValueError("Please provide either copy=True or name != None")
-            assert id(self.refs[name]) == id(dst) # DEBUG
-            setattr(self, name, src)
-        else:
-            raise ValueError(
-                "Invalid array type %s, expected numpy.ndarray or pyopencl.array" %
-                type(src)
-            )
-        return dst
-
-
     def compute_plans(self):
         ndim = len(self.shape)
-        forward_func = self._fft_function[self.real_transform][np.minimum(ndim, 3)]
-        self.forward_func = forward_func
+        funcs = self._fft_functions[self.real_transform][np.minimum(ndim, 3)]
+        self.numpy_args = {"norm": self.normalize}
         # Batched transform
         if (self.user_axes is not None) and len(self.user_axes) < ndim:
-            forward_func = self._fft_function[self.real_transform][np.minimum(ndim-1, 3)]
-            kwargs = {"axes": self.user_axes}
+            funcs = self._fft_functions[self.real_transform][np.minimum(ndim-1, 3)]
+            self.numpy_args["axes"] = self.user_axes
+            # Special case of batched 1D transform on 2D data
             if ndim == 2:
-                assert len(self.user_axes) == 0
-                kwargs = {"axis": self.user_axes[0]}
-            self.forward_func = lambda x : forward_func(x, **kwargs)
-
-
-
+                assert len(self.user_axes) == 1
+                self.numpy_args["axis"] = self.user_axes[0]
+                self.numpy_args.pop("axes")
+        self.numpy_funcs = funcs
 
 
     def fft(self, array):
@@ -151,6 +113,7 @@ class NPFFT(BaseFFT):
             Input data. Must be consistent with the current context.
 
         """
+        return self.numpy_funcs[0](array, **self.numpy_args)
 
 
     def ifft(self, array):
@@ -163,6 +126,7 @@ class NPFFT(BaseFFT):
         array: numpy.ndarray or pyopencl.array
             Input data. Must be consistent with the current context.
         """
+        return self.numpy_funcs[1](array, **self.numpy_args)
 
 
 

@@ -81,9 +81,9 @@ class TransformInfos(object):
         ]
         self.axes = {
             "1D": None,
-            "batched_1D": (1,),
+            "batched_1D": (-1,),
             "2D": None,
-            "batched_2D": (2, 1),
+            "batched_2D": (-2, -1),
             "3D": None,
         }
         self.sizes["batched_1D"] = self.sizes["2D"]
@@ -128,6 +128,7 @@ class TestFFT(ParametrizedTestCase):
         self.test_data = self.param["test_data"]
 
     def tearDown(self):
+        pass
 
 
     def calc_mae(self, arr1, arr2):
@@ -209,9 +210,85 @@ class TestFFT(ParametrizedTestCase):
 
 
 
+
+
+class TestNumpyFFT(ParametrizedTestCase):
+    """
+    Test the Numpy backend individually.
+    """
+
+
+    def setUp(self):
+        transforms = {
+            "1D": {
+                True: (np.fft.rfft, np.fft.irfft),
+                False: (np.fft.fft, np.fft.ifft),
+            },
+            "2D": {
+                True: (np.fft.rfft2, np.fft.irfft2),
+                False: (np.fft.fft2, np.fft.ifft2),
+            },
+            "3D": {
+                True: (np.fft.rfftn, np.fft.irfftn),
+                False: (np.fft.fftn, np.fft.ifftn),
+            },
+        }
+        transforms["batched_1D"] = transforms["1D"]
+        transforms["batched_2D"] = transforms["2D"]
+        self.transforms = transforms
+
+
+
+    def test_numpy_fft(self):
+        """
+        Test the numpy backend against native fft.
+        Results should be exactly the same.
+        """
+        trinfos = self.param["transform_infos"]
+        trdim = self.param["trdim"]
+        ndim = len(self.param["size"])
+        input_data = self.param["test_data"].data_refs[ndim].astype(trinfos.modes[self.param["mode"]])
+        np_fft, np_ifft = self.transforms[trdim][np.isrealobj(input_data)]
+
+        F = FFT(
+            data=input_data,
+            axes=trinfos.axes[trdim],
+            backend="numpy"
+        )
+        res = F.fft(input_data)
+        ref = np_fft(input_data)
+        self.assertTrue(np.allclose(res, ref))
+
+
+
+def test_numpy_backend(dimensions=None):
+    testSuite = unittest.TestSuite()
+    transform_infos = TransformInfos()
+    test_data = TestData()
+    dimensions = dimensions or transform_infos.dimensions
+
+    for trdim in dimensions:
+        print("   testing %s" % trdim)
+        for mode in transform_infos.modes:
+            print("   testing %s:%s" % (trdim, mode))
+            for size in transform_infos.sizes[trdim]:
+                print("      size: %s" % str(size))
+                testcase = ParametrizedTestCase.parametrize(
+                    TestNumpyFFT,
+                    param={
+                        "transform_infos": transform_infos,
+                        "test_data": test_data,
+                        "trdim": trdim,
+                        "mode": mode,
+                        "size": size,
+                    }
+                )
+                testSuite.addTest(testcase)
+    return testSuite
+
+
 def test_fft(backend, dimensions=None):
     testSuite = unittest.TestSuite()
-
     transform_infos = TransformInfos()
     test_data = TestData()
     dimensions = dimensions or transform_infos.dimensions
@@ -240,7 +317,9 @@ def test_fft(backend, dimensions=None):
 
 def test_all():
     suite = unittest.TestSuite()
-    #~ suite.addTest(test_fft("numpy"))
+
+    suite.addTest(test_numpy_backend())
+
     #~ suite.addTest(test_fft("fftw"))
     suite.addTest(test_fft("opencl"))
     #~ suite.addTest(test_fft("cuda"))

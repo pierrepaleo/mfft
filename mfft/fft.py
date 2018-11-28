@@ -48,7 +48,7 @@ except ImportError:
 
 from .fftw import FFTW
 from .clfft import CLFFT
-#~ from .npfft import NPFFT
+from .npfft import NPFFT
 #~ from .cufft import CUFFT
 
 
@@ -99,8 +99,8 @@ def FFT(
         FFT Backend to use. Value can be "numpy", "fftw", "opencl", "cuda".
     """
     backends = {
-        #~ "numpy": NPFFT,
-        #~ "np": NPFFT,
+        "numpy": NPFFT,
+        "np": NPFFT,
         "fftw": FFTW,
         "opencl": CLFFT,
         "clfft": CLFFT,
