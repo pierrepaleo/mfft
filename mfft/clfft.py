@@ -196,6 +196,15 @@ class CLFFT(BaseFFT):
         self.plan_inverse.result = self.data_in
 
 
+    def copy_output_if_numpy(self, dst, src):
+        if isinstance(dst, parray.Array):
+            return
+        # working on underlying buffer is notably faster
+        #~ dst[:] = src[:]
+        evt = cl.enqueue_copy(self.queue, dst, src.data)
+        evt.wait()
+
+
     def fft(self, array, output=None, async=False):
         """
         Perform a
@@ -217,7 +226,8 @@ class CLFFT(BaseFFT):
         event, = self.plan_forward.enqueue()
         if not(async):
             event.wait()
-        if (output is not None) and (isinstance(output, parray.Array)):
+        if output is not None:
+            self.copy_output_if_numpy(output, self.data_out)
             res = output
         else:
             res = self.data_out.get()
@@ -243,10 +253,11 @@ class CLFFT(BaseFFT):
         data_in = self.set_output_data(array, copy=False)
         data_out = self.set_input_data(output, copy=False)
         self.update_inverse_plan_arrays()
-        event, = self.plan_forward.enqueue()
+        event, = self.plan_inverse.enqueue()
         if not(async):
             event.wait()
-        if (output is not None) and (isinstance(output, parray.Array)):
+        if output is not None:
+            self.copy_output_if_numpy(output, self.data_in)
             res = output
         else:
             res = self.data_in.get()
