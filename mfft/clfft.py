@@ -253,7 +253,7 @@ class CLFFT(BaseFFT):
         data_in = self.set_output_data(array, copy=False)
         data_out = self.set_input_data(output, copy=False)
         self.update_inverse_plan_arrays()
-        event, = self.plan_inverse.enqueue()
+        event, = self.plan_inverse.enqueue(forward=False)
         if not(async):
             event.wait()
         if output is not None:

@@ -56,7 +56,7 @@ class TransformInfos(object):
     def __init__(self):
         self.dimensions = [
             "1D",
-            "batched_1D",
+            #~ "batched_1D",
             "2D",
             #~ "batched_2D",
             #~ "3D",
@@ -145,6 +145,8 @@ class TestFFT(ParametrizedTestCase):
         ndim = len(self.size)
         input_data = self.test_data.data_refs[ndim].astype(self.transform_infos.modes[self.mode])
         tol = self.tol[np.dtype(input_data.dtype)]
+        if self.trdim == "3D":
+            tol *= 10 # Error is relatively high in high dimensions
 
         F = FFT(
             data=input_data,
