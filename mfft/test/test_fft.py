@@ -117,8 +117,10 @@ class TestFFT(ParametrizedTestCase):
 
     def setUp(self):
         self.tol = {
-            "float32": 1e-4,
-            "float64": 1e-9
+            np.dtype("float32"): 1e-3,
+            np.dtype("float64"): 1e-9,
+            np.dtype("complex64"): 1e-3,
+            np.dtype("complex128"): 1e-9,
         }
         self.backend = self.param["backend"]
         self.trdim = self.param["trdim"]
@@ -131,7 +133,8 @@ class TestFFT(ParametrizedTestCase):
         pass
 
 
-    def calc_mae(self, arr1, arr2):
+    @staticmethod
+    def calc_mae(arr1, arr2):
         """
         Compute the Max Absolute Error between two arrays
         """
@@ -141,72 +144,35 @@ class TestFFT(ParametrizedTestCase):
     def test_fft(self):
         ndim = len(self.size)
         input_data = self.test_data.data_refs[ndim].astype(self.transform_infos.modes[self.mode])
+        tol = self.tol[np.dtype(input_data.dtype)]
 
         F = FFT(
             data=input_data,
             axes=self.transform_infos.axes[self.trdim],
             backend=self.backend
         )
+        F_np = FFT(
+            data=input_data,
+            axes=self.transform_infos.axes[self.trdim],
+            backend="numpy"
+        )
 
-        F.fft(input_data)
+        # Forward FFT
+        res = F.fft(input_data)
+        res_np = F_np.fft(input_data)
+        mae = self.calc_mae(res, res_np)
+        self.assertTrue(
+            mae < np.abs(input_data.max()) * tol,
+            "FFT %s:%s, MAE(%s, numpy) = %f" % (self.mode, self.trdim, self.backend, mae)
+        )
 
-
-
-
-
-
-
-
-    '''
-
-
-    def test_plan_creation(self):
-        #~ plan_numpy = FFT(data=self.data[:, 0], backend="numpy")
-        plan_fftw = FFT(data=self.data[:, 0], backend="fftw", check_alignment=True)
-        plan_opencl = FFT(data=self.data[:, 0], backend="opencl")
-        #~ plan_cuda = FFT(data=self.data[:, 0], backend="cuda")
-
-
-    def test_forward_FFT(self):
-        data1d = self.data[:, 0]
-        F = FFT(data=self.data1d, backend="fftw", check_alignment=True)
-        res = F.fft(self.data1d)
-
-    def test_fft_modes(self):
-        data1d = self.data1d
-        N = data1d.size
-        res_np = np.fft.rfft(self.data1d)
-
-        # rescale
-        F = FFT(data=data1d, backend="fftw", check_alignment=True, normalize="rescale")
-        res = F.fft(data1d)
-        self.assertLess(self.calc_mae(res, res_np), self.tol["float32"] * data1d.max())
+        # Inverse FFT
         res2 = F.ifft(res)
-        self.assertLess(self.calc_mae(res2, data1d), self.tol["float32"])
-        # ortho
-        F = FFT(data=data1d, backend="fftw", check_alignment=True, normalize="ortho")
-        res = F.fft(data1d)
-        self.assertLess(self.calc_mae(res, res_np/np.sqrt(N)), self.tol["float32"] * data1d.max())
-        res2 = F.ifft(res)
-        self.assertLess(self.calc_mae(res2, data1d), self.tol["float32"])
-        # none
-        F = FFT(data=data1d, backend="fftw", check_alignment=True, normalize="none")
-        res = F.fft(data1d)
-        mae = np.max(np.abs(res - res_np))
-        self.assertLess(mae, self.tol["float32"] * data1d.max())
-        res2 = F.ifft(res)
-        self.assertLess(self.calc_mae(res2, data1d * N), self.tol["float32"] * data1d.max())
-
-
-    def test_device_input(self):
-        """
-        Test FFT where input is on device (OpenCL).
-        """
-        F = FFT(data=self.data, backend="opencl")
-        # input: host, output: host
-
-    '''
-
+        mae = self.calc_mae(res2, input_data)
+        self.assertTrue(
+            mae < tol,
+            "IFFT %s:%s, MAE(%s, numpy) = %f" % (self.mode, self.trdim, self.backend, mae)
+        )
 
 
 
@@ -255,9 +221,16 @@ class TestNumpyFFT(ParametrizedTestCase):
             axes=trinfos.axes[trdim],
             backend="numpy"
         )
+        # Test FFT
         res = F.fft(input_data)
         ref = np_fft(input_data)
         self.assertTrue(np.allclose(res, ref))
+
+        # Test IFFT
+        res2 = F.ifft(res)
+        ref2 = np_ifft(ref)
+        self.assertTrue(np.allclose(res2, ref2))
+
 
 
 
@@ -318,7 +291,7 @@ def test_fft(backend, dimensions=None):
 def test_all():
     suite = unittest.TestSuite()
 
-    suite.addTest(test_numpy_backend())
+    #~ suite.addTest(test_numpy_backend())
 
     #~ suite.addTest(test_fft("fftw"))
     suite.addTest(test_fft("opencl"))
