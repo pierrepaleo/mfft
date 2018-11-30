@@ -125,6 +125,9 @@ class CLFFT(BaseFFT):
         """
         self.check_array(src, shape, dtype)
         if isinstance(src, np.ndarray):
+            if name == "data_out":
+                # Makes little sense to provide output=numpy_array
+                return dst
             if not(src.flags["C_CONTIGUOUS"]):
                 src = np.ascontiguousarray(src, dtype=dtype)
             # working on underlying buffer is notably faster
@@ -214,7 +217,7 @@ class CLFFT(BaseFFT):
         event, = self.plan_forward.enqueue()
         if not(async):
             event.wait()
-        if output is not None:
+        if (output is not None) and (isinstance(output, parray.Array)):
             res = output
         else:
             res = self.data_out.get()
@@ -243,7 +246,7 @@ class CLFFT(BaseFFT):
         event, = self.plan_forward.enqueue()
         if not(async):
             event.wait()
-        if output is not None:
+        if (output is not None) and (isinstance(output, parray.Array)):
             res = output
         else:
             res = self.data_in.get()
