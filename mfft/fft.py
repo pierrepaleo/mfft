@@ -49,7 +49,7 @@ except ImportError:
 from .fftw import FFTW
 from .clfft import CLFFT
 from .npfft import NPFFT
-#~ from .cufft import CUFFT
+from .cufft import CUFFT
 
 
 def FFT(
@@ -100,8 +100,8 @@ def FFT(
         "fftw": FFTW,
         "opencl": CLFFT,
         "clfft": CLFFT,
-        #~ "cuda": CUFFT,
-        #~ "cufft": CUFFT,
+        "cuda": CUFFT,
+        "cufft": CUFFT,
     }
 
     backend = backend.lower()
