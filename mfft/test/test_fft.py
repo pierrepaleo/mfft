@@ -58,7 +58,7 @@ class TransformInfos(object):
             "1D",
             "batched_1D",
             "2D",
-            #~ "batched_2D",
+            "batched_2D",
             #~ "3D",
         ]
         self.modes = {

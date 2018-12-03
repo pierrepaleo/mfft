@@ -174,9 +174,8 @@ class CUFFT(BaseFFT):
 
 
     def compute_inverse_plan(self):
-        shape = self.cufft_shape # not shape_out
         self.plan_inverse = Plan(
-            shape,
+            self.cufft_shape, # not shape_out
             self.dtype_out,
             self.dtype,
             batch=self.cufft_batch_size,
