@@ -128,6 +128,10 @@ class TestFFT(ParametrizedTestCase):
         self.size = self.param["size"]
         self.transform_infos = self.param["transform_infos"]
         self.test_data = self.param["test_data"]
+        if self.backend in ["cuda", "cufft"]:
+            import pycuda.autoinit
+            # TODO precision is worse when using CUDA
+            self.tol[np.dtype("float32")] *= 2
 
     def tearDown(self):
         pass
@@ -297,7 +301,7 @@ def test_all():
 
     #~ suite.addTest(test_fft("fftw"))
     #~ suite.addTest(test_fft("opencl"))
-    #~ suite.addTest(test_fft("cuda"))
+    suite.addTest(test_fft("cuda"))
     return suite
 
 

@@ -29,9 +29,6 @@ from .basefft import BaseFFT
 try:
     import pyopencl as cl
     import pyopencl.array as parray
-except ImportError:
-    __have_clfft__ = False
-try:
     from gpyfft.fft import FFT as cl_fft
     __have_clfft__ = True
 except ImportError:
@@ -141,6 +138,7 @@ class CLFFT(BaseFFT):
                 raise ValueError("Please provide either copy=True or name != None")
             assert id(self.refs[name]) == id(dst) # DEBUG
             setattr(self, name, src)
+            return src
         else:
             raise ValueError(
                 "Invalid array type %s, expected numpy.ndarray or pyopencl.array" %

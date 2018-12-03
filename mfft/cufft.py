@@ -29,9 +29,6 @@ from .basefft import BaseFFT
 try:
     import pycuda
     import pycuda.gpuarray as gpuarray
-except ImportError:
-    __have_cufft__ = False
-try:
     from skcuda.fft import Plan
     from skcuda.fft import fft as cu_fft
     from skcuda.fft import ifft as cu_ifft
@@ -82,11 +79,7 @@ class CUFFT(BaseFFT):
             "data_in": self.data_in,
             "data_out": self.data_out,
         }
-        # TODO
-        if self.normalize == "ortho":
-            raise NotImplementedError(
-                "Normalization mode 'ortho' is not implemented with CUDA backend yet."
-            )
+        self.configure_normalization()
 
 
     def _allocate(self, shape, dtype):
@@ -103,6 +96,15 @@ class CUFFT(BaseFFT):
                     "With the CUDA backend, batched transform can currently be performed only with axes=%s" % self.shape[1::]
                 )
             self.cufft_n_batch = self.shape[0]
+
+
+    def configure_normalization(self):
+        # TODO
+        if self.normalize == "ortho":
+            raise NotImplementedError(
+                "Normalization mode 'ortho' is not implemented with CUDA backend yet."
+            )
+        self.cufft_scale_inverse = (self.normalize == "rescale")
 
 
     def check_array(self, array, shape, dtype, copy=True):
@@ -131,7 +133,7 @@ class CUFFT(BaseFFT):
             if not(src.flags["C_CONTIGUOUS"]):
                 src = np.ascontiguousarray(src, dtype=dtype)
             dst[:] = src[:]
-        elif isinstance(src, pycuda.gpuarray):
+        elif isinstance(src, gpuarray.GPUArray):
             # No copy, use the data as self.d_input or self.d_output
             # (this prevents the use of in-place transforms, however).
             # We have to keep their old references.
@@ -140,9 +142,10 @@ class CUFFT(BaseFFT):
                 raise ValueError("Please provide either copy=True or name != None")
             assert id(self.refs[name]) == id(dst) # DEBUG
             setattr(self, name, src)
+            return src
         else:
             raise ValueError(
-                "Invalid array type %s, expected numpy.ndarray or pyopencl.array" %
+                "Invalid array type %s, expected numpy.ndarray or pycuda.gpuarray" %
                 type(src)
             )
         return dst
@@ -165,11 +168,18 @@ class CUFFT(BaseFFT):
 
 
     def compute_inverse_plan(self):
-        pass
+        self.plan_inverse = Plan(
+            self.shape, # <
+            self.dtype_out,
+            self.dtype,
+            batch=self.cufft_n_batch,
+            stream=self.cufft_stream,
+            auto_allocate=True
+        )
 
 
     def copy_output_if_numpy(self, dst, src):
-        if isinstance(dst, pycuda.gpuarray):
+        if isinstance(dst, gpuarray.GPUArray):
             return
         dst[:] = src[:]
 
@@ -190,8 +200,9 @@ class CUFFT(BaseFFT):
         data_out = self.set_output_data(output, copy=False)
 
         cu_fft(
-            self.data_in,
-            self.data_out, self.plan_forward,
+            data_in,
+            data_out,
+            self.plan_forward,
             scale=False
         )
 
@@ -218,10 +229,14 @@ class CUFFT(BaseFFT):
         """
         data_in = self.set_output_data(array, copy=False)
         data_out = self.set_input_data(output, copy=False)
-        self.update_inverse_plan_arrays()
-        event, = self.plan_inverse.enqueue(forward=False)
-        if not(async):
-            event.wait()
+
+        cu_ifft(
+            data_in,
+            data_out,
+            self.plan_inverse,
+            scale=self.cufft_scale_inverse,
+        )
+
         if output is not None:
             self.copy_output_if_numpy(output, self.data_in)
             res = output
