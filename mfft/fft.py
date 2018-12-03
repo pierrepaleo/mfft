@@ -2,7 +2,7 @@
 # coding: utf-8
 # /*##########################################################################
 #
-# Copyright (c) 2016 European Synchrotron Radiation Facility
+# Copyright (c) 2018 European Synchrotron Radiation Facility
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,28 +24,6 @@
 #
 # ###########################################################################*/
 import numpy as np
-
-"""
-# gpyFFT (clfft/openCL)
-try:
-    from gpyfft.fft import FFT as cl_fft
-    __have_gpyfft__ = True
-except ImportError:
-    __have_gpyfft__ = False
-# skcuda (CUDA)
-try:
-    import skcuda.fft as cu_fft
-    __have_cufft__ = True
-except ImportError:
-    __have_cufft__ = False
-# pyfftw (FFTW3)
-try:
-    import pyfftw
-    __have_fftw__ = True
-except ImportError:
-    __have_fftw__ = False
-"""
-
 from .fftw import FFTW
 from .clfft import CLFFT
 from .npfft import NPFFT
