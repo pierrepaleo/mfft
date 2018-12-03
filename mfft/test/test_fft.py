@@ -56,7 +56,7 @@ class TransformInfos(object):
     def __init__(self):
         self.dimensions = [
             "1D",
-            #~ "batched_1D",
+            "batched_1D",
             "2D",
             #~ "batched_2D",
             #~ "3D",

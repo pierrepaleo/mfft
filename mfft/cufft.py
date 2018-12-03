@@ -86,16 +86,22 @@ class CUFFT(BaseFFT):
         return gpuarray.zeros(shape, dtype)
 
 
+    # TODO support batched transform where batch is other than dimension 0
     def configure_batched_transform(self):
-        self.cufft_n_batch = 1
+        self.cufft_batch_size = 1
+        self.cufft_shape = self.shape
         if (self.axes is not None) and (len(self.axes) < len(self.shape)):
             # In the easiest batch mode, dimension 0 is equal to batch_size.
             # Otherwise, we have to configure istride/idist.
-            if self.axes != self.shape[1::]:
+            dims = tuple(np.arange(len(self.shape)))
+            if self.axes != dims[1:]:
                 raise NotImplementedError(
-                    "With the CUDA backend, batched transform can currently be performed only with axes=%s" % self.shape[1::]
+                    "With the CUDA backend, batched transform can currently be performed only with axes=%s" % dims[1:]
                 )
-            self.cufft_n_batch = self.shape[0]
+            self.cufft_batch_size = self.shape[0]
+            self.cufft_shape = self.shape[1:]
+            if len(self.cufft_shape) == 1:
+                self.cufft_shape = self.cufft_shape[0]
 
 
     def configure_normalization(self):
@@ -158,21 +164,22 @@ class CUFFT(BaseFFT):
 
     def compute_forward_plan(self):
         self.plan_forward = Plan(
-            self.shape,
+            self.cufft_shape,
             self.dtype,
             self.dtype_out,
-            batch=self.cufft_n_batch,
+            batch=self.cufft_batch_size,
             stream=self.cufft_stream,
             auto_allocate=True
         )
 
 
     def compute_inverse_plan(self):
+        shape = self.cufft_shape # not shape_out
         self.plan_inverse = Plan(
-            self.shape, # <
+            shape,
             self.dtype_out,
             self.dtype,
-            batch=self.cufft_n_batch,
+            batch=self.cufft_batch_size,
             stream=self.cufft_stream,
             auto_allocate=True
         )
