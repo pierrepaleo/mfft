@@ -40,7 +40,6 @@ class FFTW(BaseFFT):
         dtype=None,
         data=None,
         shape_out=None,
-        double_precision=False,
         axes=None,
         normalize="rescale",
         check_alignment=False,
@@ -64,7 +63,6 @@ class FFTW(BaseFFT):
             dtype=dtype,
             data=data,
             shape_out=shape_out,
-            double_precision=double_precision,
             axes=axes,
             normalize=normalize,
         )

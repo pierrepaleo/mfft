@@ -57,7 +57,6 @@ def FFT(
     dtype=None,
     data=None,
     shape_out=None,
-    double_precision=False,
     axes=None,
     normalize="rescale",
     backend="numpy",
@@ -81,9 +80,6 @@ def FFT(
         (in case of R2C transform). If shape_out is provided, it must be greater
         or equal than the shape of input data. In this case, FFT is performed
         with zero-padding.
-    double_precision: bool, optional
-        If set to True, computations will be done in double precision regardless
-        of the input data type.
     axes: tuple
         Axes along which FFT is computed.
           * For 2D transform: axes=(1,0)
@@ -116,7 +112,6 @@ def FFT(
         dtype=dtype,
         data=data,
         shape_out=shape_out,
-        double_precision=double_precision,
         axes=axes,
         normalize=normalize,
         **kwargs

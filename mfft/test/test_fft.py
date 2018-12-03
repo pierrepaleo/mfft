@@ -296,7 +296,7 @@ def test_all():
     #~ suite.addTest(test_numpy_backend())
 
     #~ suite.addTest(test_fft("fftw"))
-    suite.addTest(test_fft("opencl"))
+    #~ suite.addTest(test_fft("opencl"))
     #~ suite.addTest(test_fft("cuda"))
     return suite
 

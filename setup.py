@@ -2,7 +2,7 @@
 # coding: utf-8
 # /*##########################################################################
 #
-# Copyright (c) 2016 European Synchrotron Radiation Facility
+# Copyright (c) 2018 European Synchrotron Radiation Facility
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -64,16 +64,11 @@ def setup_package():
 
         packages=packages,
         package_dir = package_dir,
-        #~ package_data = {'': ['data/testdata.npz']},
 
         install_requires = [
           'numpy',
         ],
-        #~ dependency_links = [ ... ],
 
-        #~ entry_points = {
-            #~ 'console_scripts': ['test_mfft=mfft.test:main'],
-        #~ },
 
         long_description = """
         Multi Back-end FFT

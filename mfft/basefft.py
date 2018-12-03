@@ -49,7 +49,6 @@ class BaseFFT(object):
             "shape": None,
             "dtype": None,
             "data": None,
-            "double_precision": False,
             "shape_out": None,
             "axes": None,
             "normalize": "rescale",
@@ -74,14 +73,6 @@ class BaseFFT(object):
             np.dtype("complex64"): np.complex128
         }
         self.dtype_in = np.dtype(self.dtype)
-        if self.double_precision:
-            if self.dtype_in in dp:
-                self.dtype_in = np.dtype(dp[self.dtype_in])
-            else:
-                raise ValueError(
-                    "Invalid input data type for double precision: got %s" %
-                    self.dtype_in
-                )
         if self.dtype_in not in dtypes_mapping:
             raise ValueError("Invalid input data type: got %s" %
                 self.dtype_in
