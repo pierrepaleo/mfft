@@ -59,7 +59,7 @@ class CUFFT(BaseFFT):
         if not(__have_cufft__) or not(__have_cufft__):
             raise ImportError("Please install pycuda and scikit-cuda to use the CUDA back-end")
 
-        super().__init__(
+        super(CUFFT, self).__init__(
             shape=shape,
             dtype=dtype,
             data=data,

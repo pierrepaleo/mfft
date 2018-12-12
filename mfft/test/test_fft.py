@@ -29,6 +29,10 @@ import numpy as np
 import unittest
 from scipy.misc import ascent
 from mfft.fft import FFT
+from mfft.clfft import __have_clfft__
+from mfft.cufft import __have_cufft__
+from mfft.fftw import __have_fftw__
+
 
 # http://eli.thegreenplace.net/2011/08/02/python-unit-testing-parametrized-test-cases/
 class ParametrizedTestCase(unittest.TestCase):
@@ -73,12 +77,6 @@ class TransformInfos(object):
             "3D": [(128, 128, 128), (128, 128, 127), (128, 127, 128), (127, 128, 128),
                  (128, 127, 127), (127, 128, 127), (127, 127, 128), (127, 127, 127)]
         }
-        self.backends = [
-            #~ "numpy",
-            #~ "fftw",
-            "opencl",
-            #~ "cuda"
-        ]
         self.axes = {
             "1D": None,
             "batched_1D": (-1,),
@@ -105,15 +103,19 @@ class TestData(object):
 
 class TestFFT(ParametrizedTestCase):
 
-    """
     @classmethod
     def setUpClass(cls):
         super(TestFFT, cls).setUpClass()
+        if __have_clfft__:
+            import pyopencl
+            cls.Ctx = pyopencl.create_some_context()
+
 
     @classmethod
     def tearDownClass(cls):
-        super().tearDownClass()
-    """
+        super(TestFFT, cls).tearDownClass()
+        if __have_clfft__:
+            del cls.Ctx
 
     def setUp(self):
         self.tol = {
@@ -128,13 +130,39 @@ class TestFFT(ParametrizedTestCase):
         self.size = self.param["size"]
         self.transform_infos = self.param["transform_infos"]
         self.test_data = self.param["test_data"]
-        if self.backend in ["cuda", "cufft"]:
-            import pycuda.autoinit
-            # TODO precision is worse when using CUDA
-            self.tol[np.dtype("float32")] *= 2
+        self.configure_backends()
+        self.configure_extra_args()
+
 
     def tearDown(self):
         pass
+
+
+    def configure_backends(self):
+        self.__have_clfft__ = __have_clfft__
+        self.__have_cufft__ = __have_cufft__
+        self.__have_fftw__ = __have_fftw__
+
+        if self.backend in ["cuda", "cufft"] and __have_cufft__:
+            import pycuda.autoinit
+            # Error is higher when using cuda. fast_math mode ?
+            self.tol[np.dtype("float32")] *= 2
+
+
+    def configure_extra_args(self):
+        self.extra_args = {}
+        if __have_clfft__ and self.backend in ["opencl", "clfft"]:
+            self.extra_args["ctx"] = self.Ctx
+
+
+    def check_current_backend(self):
+        if self.backend in ["cuda", "cufft"] and not(self.__have_cufft__):
+            return "cuda back-end requires pycuda and scikit-cuda"
+        if self.backend in ["opencl", "clfft"] and not(self.__have_clfft__):
+            return "opencl back-end requires pyopencl and gpyfft"
+        if self.backend == "fftw" and not(self.__have_fftw__):
+            return "fftw back-end requires pyfftw"
+        return None
 
 
     @staticmethod
@@ -146,16 +174,25 @@ class TestFFT(ParametrizedTestCase):
 
 
     def test_fft(self):
+        err = self.check_current_backend()
+        if err is not None:
+            self.skipTest(err)
+
         ndim = len(self.size)
         input_data = self.test_data.data_refs[ndim].astype(self.transform_infos.modes[self.mode])
         tol = self.tol[np.dtype(input_data.dtype)]
         if self.trdim == "3D":
             tol *= 10 # Error is relatively high in high dimensions
 
+        # Python < 3.5 does not want to mix **extra_args with existing kwargs
+        fft_args = {
+            "data": input_data,
+            "axes": self.transform_infos.axes[self.trdim],
+            "backend": self.backend,
+        }
+        fft_args.update(self.extra_args)
         F = FFT(
-            data=input_data,
-            axes=self.transform_infos.axes[self.trdim],
-            backend=self.backend
+            **fft_args
         )
         F_np = FFT(
             data=input_data,
@@ -297,10 +334,10 @@ def test_fft(backend, dimensions=None):
 def test_all():
     suite = unittest.TestSuite()
 
-    #~ suite.addTest(test_numpy_backend())
+    suite.addTest(test_numpy_backend())
 
-    #~ suite.addTest(test_fft("fftw"))
-    #~ suite.addTest(test_fft("opencl"))
+    suite.addTest(test_fft("fftw"))
+    suite.addTest(test_fft("opencl"))
     suite.addTest(test_fft("cuda"))
     return suite
 

@@ -43,7 +43,7 @@ class NPFFT(BaseFFT):
         Please see FFT class for parameters help.
         """
 
-        super().__init__(
+        super(NPFFT, self).__init__(
             shape=shape,
             dtype=dtype,
             data=data,

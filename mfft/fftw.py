@@ -58,7 +58,7 @@ class FFTW(BaseFFT):
         """
         if not(__have_fftw__):
             raise ImportError("Please install pyfftw to use the FFTW back-end")
-        super().__init__(
+        super(FFTW, self).__init__(
             shape=shape,
             dtype=dtype,
             data=data,

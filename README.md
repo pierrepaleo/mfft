@@ -11,6 +11,22 @@ mFFT (Multi-backend FFT) is a wrapper around various FFT solutions, offering a u
 * 1D-ND transforms, R2C, C2C
 * Batched transforms
 
+## Installation
+
+### From Pypi
+
+```bash
+pip install [--user] mfft
+```
+
+### From sources
+
+```bash
+git clone https://github.com/pierrepaleo/mfft
+cd mfft
+pip install [--user] .
+```
+
 ## Examples
 
 ### Simple FFT with numpy
