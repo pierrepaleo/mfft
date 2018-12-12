@@ -334,11 +334,11 @@ def test_fft(backend, dimensions=None):
 def test_all():
     suite = unittest.TestSuite()
 
-    suite.addTest(test_numpy_backend())
+    #~ suite.addTest(test_numpy_backend())
 
-    suite.addTest(test_fft("fftw"))
+    #~ suite.addTest(test_fft("fftw"))
     suite.addTest(test_fft("opencl"))
-    suite.addTest(test_fft("cuda"))
+    #~ suite.addTest(test_fft("cuda"))
     return suite
 
 

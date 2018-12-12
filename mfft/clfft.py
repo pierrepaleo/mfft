@@ -25,14 +25,21 @@
 # ###########################################################################*/
 import numpy as np
 
-from .basefft import BaseFFT
+from .basefft import BaseFFT, check_version
 try:
     import pyopencl as cl
     import pyopencl.array as parray
+    import gpyfft
     from gpyfft.fft import FFT as cl_fft
     __have_clfft__ = True
 except ImportError:
     __have_clfft__ = False
+
+
+# Check gpyfft version
+__required_gpyfft_version__ = "0.3.0"
+if __have_clfft__:
+    __have_clfft__ = check_version(gpyfft, __required_gpyfft_version__)
 
 class CLFFT(BaseFFT):
     def __init__(
@@ -58,7 +65,7 @@ class CLFFT(BaseFFT):
             i.e more speed but less accuracy.
         """
         if not(__have_clfft__) or not(__have_clfft__):
-            raise ImportError("Please install pyopencl and gpyfft to use the OpenCL back-end")
+            raise ImportError("Please install pyopencl and gpyfft >= %s to use the OpenCL back-end" % __required_gpyfft_version__)
 
         super(CLFFT, self).__init__(
             shape=shape,

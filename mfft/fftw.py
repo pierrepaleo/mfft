@@ -25,14 +25,20 @@
 # ###########################################################################*/
 import numpy as np
 
-from .basefft import BaseFFT
+from .basefft import BaseFFT, check_version
 try:
     import pyfftw
     __have_fftw__ = True
 except ImportError:
     __have_fftw__ = False
 
-# TODO support in-place ? In this case, pyfftw.builders cannot be used
+
+# Check pyfftw version
+__required_pyfftw_version__ = "0.10.0"
+if __have_fftw__:
+    __have_fftw__ = check_version(pyfftw, __required_pyfftw_version__)
+
+
 class FFTW(BaseFFT):
     def __init__(
         self,
@@ -57,7 +63,7 @@ class FFTW(BaseFFT):
             Number of threads for computing FFT.
         """
         if not(__have_fftw__):
-            raise ImportError("Please install pyfftw to use the FFTW back-end")
+            raise ImportError("Please install pyfftw >= %s to use the FFTW back-end" % __required_pyfftw_version__)
         super(FFTW, self).__init__(
             shape=shape,
             dtype=dtype,

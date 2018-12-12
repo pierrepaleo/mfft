@@ -169,7 +169,10 @@ class CUFFT(BaseFFT):
             self.dtype_out,
             batch=self.cufft_batch_size,
             stream=self.cufft_stream,
-            auto_allocate=True
+            # cufft extensible plan API is only supported after 0.5.1
+            # (commit 65288d28ca0b93e1234133f8d460dc6becb65121)
+            # but there is still no official 0.5.2
+            #~ auto_allocate=True # cufft extensible plan API
         )
 
 
@@ -180,7 +183,10 @@ class CUFFT(BaseFFT):
             self.dtype,
             batch=self.cufft_batch_size,
             stream=self.cufft_stream,
-            auto_allocate=True
+            # cufft extensible plan API is only supported after 0.5.1
+            # (commit 65288d28ca0b93e1234133f8d460dc6becb65121)
+            # but there is still no official 0.5.2
+            #~ auto_allocate=True
         )
 
 
